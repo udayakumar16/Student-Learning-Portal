@@ -1,0 +1,5 @@
+- Use TypeScript throughout (frontend + backend).
+- Keep REST APIs under `backend/src/routes` and mount under `/api/*`.
+- Do not introduce new frameworks beyond Next.js, Express, MongoDB/Mongoose.
+- Prefer small, focused patches; do not reformat unrelated files.
+- Frontend should call backend using `NEXT_PUBLIC_API_BASE_URL` and attach `Authorization: Bearer <token>`.
