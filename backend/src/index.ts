@@ -31,11 +31,10 @@ async function main() {
     getDbStatus: () => dbStatus
   });
 
-  const server = app.listen(env.PORT, "0.0.0.0", () => {
-    const addr = server.address();
-    const pretty = typeof addr === "string" ? addr : addr ? `${addr.address}:${addr.port}` : `:${env.PORT}`;
-    console.log(`API listening on http://localhost:${env.PORT} (bound ${pretty})`);
-  });
+  const server = app.listen(env.PORT, () => {
+  console.log(`Server running on port ${env.PORT}`);
+});
+
 
   server.on("error", (err) => {
     console.error("HTTP server error:", err);
