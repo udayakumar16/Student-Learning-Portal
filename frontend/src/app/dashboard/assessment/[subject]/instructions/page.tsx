@@ -3,19 +3,40 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Card } from "@/components/Card";
-import { subjectSlugToLabel } from "@/lib/api";
+import { fetchSubjects, subjectSlugToLabel, type Subject } from "@/lib/api";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { useEffect, useMemo, useState } from "react";
 
 export default function InstructionsPage() {
   const params = useParams<{ subject: string }>();
   const subjectSlug = params.subject;
 
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchSubjects()
+      .then((s) => {
+        if (!alive) return;
+        setSubjects(s);
+      })
+      .catch(() => {
+        // ignore; fallback to slug
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const subjectLabel = useMemo(() => subjectSlugToLabel(subjectSlug, subjects), [subjectSlug, subjects]);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Instructions"
-        subtitle={`Before you start: ${subjectSlugToLabel(subjectSlug)}`}
+        subtitle={`Before you start: ${subjectLabel}`}
       />
 
       <Card>

@@ -2,11 +2,26 @@ import { createApp } from "./app.js";
 import { connectDb } from "./config/db.js";
 import { env } from "./config/env.js";
 import { ensureAdminUser } from "./utils/ensureAdmin.js";
+import { SubjectModel } from "./models/Subject.js";
 
 type DbStatus = { connected: boolean; error?: string | null };
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureDefaultSubjects() {
+  const count = await SubjectModel.countDocuments({});
+  if (count > 0) return;
+
+  await SubjectModel.insertMany(
+    [
+      { slug: "python", label: "Python", active: true },
+      { slug: "ai", label: "Artificial Intelligence", active: true },
+      { slug: "dbms", label: "DBMS", active: true }
+    ],
+    { ordered: true }
+  );
 }
 
 async function main() {
@@ -35,6 +50,7 @@ async function main() {
     try {
       await connectDb();
       dbStatus = { connected: true, error: null };
+      await ensureDefaultSubjects();
       await ensureAdminUser();
       break;
     } catch (err) {

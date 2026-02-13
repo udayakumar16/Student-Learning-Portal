@@ -37,13 +37,18 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return (await res.json()) as T;
 }
 
-export const SUBJECTS = [
-  { slug: "python", label: "Python" },
-  { slug: "ai", label: "Artificial Intelligence" },
-  { slug: "dbms", label: "DBMS" }
-] as const;
+export type Subject = {
+  _id: string;
+  slug: string;
+  label: string;
+};
 
-export function subjectSlugToLabel(slug: string): string {
-  const found = SUBJECTS.find((s) => s.slug === slug);
+export async function fetchSubjects() {
+  const data = await apiFetch<{ subjects: Subject[] }>("/api/subjects");
+  return data.subjects;
+}
+
+export function subjectSlugToLabel(slug: string, subjects?: Subject[]): string {
+  const found = subjects?.find((s) => s.slug === slug);
   return found?.label ?? slug;
 }

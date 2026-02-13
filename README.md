@@ -9,6 +9,12 @@ Monorepo with:
 - This repo expects Node `>=18.17 <23`. Using Node 23/24+ may cause intermittent Next dev issues on Windows.
 - A MongoDB Atlas connection string
 
+If you're on Windows and don't have `nvm`, you can install Node 20.11.1 via `winget`:
+
+```bash
+winget install OpenJS.NodeJS.LTS --version 20.11.1
+```
+
 ## Setup
 
 ### 1) Backend env
@@ -57,6 +63,10 @@ If it still comes back, try Turbopack dev mode (often more stable on Windows):
 npm run dev:frontend:turbo:clean
 ```
 
+If Turbopack throws a React Server Components bindings error like:
+`Expected to use Webpack bindings ... but ... Turbopack bindings ...`,
+use Webpack dev (`npm run dev:frontend:clean`) and/or switch to Node 20.11.1.
+
 If you’re running both apps with `npm run dev` and hit the same error, use:
 
 ```bash
@@ -71,3 +81,13 @@ npm run build:frontend:clean
 
 Backend runs on `http://localhost:5000`.
 Frontend runs on `http://localhost:3000`.
+
+## Troubleshooting
+
+### Page renders with no styling (plain HTML)
+If the UI looks like raw HTML (default fonts, underlined links, no Tailwind styles), it means the Next static assets (CSS/JS under `/_next/*`) are not being applied.
+
+- Make sure you're opening the app via the Next server: `http://localhost:3000/` (not by opening any `.html` file from disk).
+- Restart frontend with a clean cache: `npm run dev:frontend:clean`.
+- If you're on Node 23/24+, switch to Node 20 LTS (Node >=23 is known to cause flaky Next dev assets on Windows in this repo).
+- In browser devtools → Network, confirm requests to `/_next/static/*` return `200` (not `404` or `text/html`).

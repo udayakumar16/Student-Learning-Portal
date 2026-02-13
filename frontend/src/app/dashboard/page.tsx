@@ -4,7 +4,7 @@ import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { apiFetch, SUBJECTS } from "@/lib/api";
+import { apiFetch, fetchSubjects, type Subject } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 
 type User = { name: string; email: string };
@@ -27,6 +27,7 @@ export default function DashboardHome() {
   const [user, setUser] = useState<User | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
   const [recentResults, setRecentResults] = useState<ResultRow[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,14 +35,16 @@ export default function DashboardHome() {
     Promise.allSettled([
       apiFetch<{ user: User }>("/api/users/me"),
       apiFetch<{ subjects: AnalyticsRow[] }>("/api/analytics/me"),
-      apiFetch<{ results: ResultRow[] }>("/api/results/me")
+      apiFetch<{ results: ResultRow[] }>("/api/results/me"),
+      fetchSubjects()
     ])
       .then((results) => {
         if (!active) return;
-        const [u, a, r] = results;
+        const [u, a, r, s] = results;
         if (u.status === "fulfilled") setUser(u.value.user);
         if (a.status === "fulfilled") setAnalytics(a.value.subjects);
         if (r.status === "fulfilled") setRecentResults(r.value.results.slice(0, 3));
+        if (s.status === "fulfilled") setSubjects(s.value);
 
         const anyRejected = results.some((x) => x.status === "rejected");
         if (anyRejected) setError("Some dashboard data failed to load. You can still continue.");
@@ -55,6 +58,8 @@ export default function DashboardHome() {
       active = false;
     };
   }, []);
+
+  const suggestedSubjects = useMemo(() => subjects.slice(0, 6), [subjects]);
 
   const greetingName = useMemo(() => {
     if (!user?.name) return "";
@@ -275,15 +280,19 @@ export default function DashboardHome() {
             <div className="mt-5">
               <div className="text-xs font-semibold text-slate-500">Suggested subjects</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {SUBJECTS.map((s) => (
-                  <Link
-                    key={s.slug}
-                    href={`/dashboard/assessment/${s.slug}/instructions`}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50"
-                  >
-                    {s.label}
-                  </Link>
-                ))}
+                {suggestedSubjects.length ? (
+                  suggestedSubjects.map((s) => (
+                    <Link
+                      key={s.slug}
+                      href={`/dashboard/assessment/${s.slug}/instructions`}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      {s.label}
+                    </Link>
+                  ))
+                ) : (
+                  <div className="text-xs text-slate-500">No subjects available yet.</div>
+                )}
               </div>
             </div>
           </div>

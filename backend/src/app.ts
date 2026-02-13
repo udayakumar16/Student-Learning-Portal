@@ -8,6 +8,7 @@ import { resultsRouter } from "./routes/results.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { supportRouter } from "./routes/support.js";
 import { adminRouter } from "./routes/admin.js";
+import { subjectsRouter } from "./routes/subjects.js";
 import { HttpError } from "./utils/http.js";
 
 type DbStatus = { connected: boolean; error?: string | null };
@@ -81,6 +82,7 @@ export function createApp(opts?: { getDbStatus?: () => DbStatus }) {
   app.use("/api/results", resultsRouter);
   app.use("/api/analytics", analyticsRouter);
   app.use("/api/support", supportRouter);
+  app.use("/api/subjects", subjectsRouter);
 
   app.use((req, _res, next) => {
     next(new HttpError(404, `Not Found: ${req.method} ${req.path}`));

@@ -1,11 +1,8 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
 
-export const SUBJECTS = ["Python", "Artificial Intelligence", "DBMS"] as const;
-export type Subject = (typeof SUBJECTS)[number];
-
 const questionSchema = new Schema(
   {
-    subject: { type: String, enum: SUBJECTS, required: true },
+    subject: { type: String, required: true, index: true },
     question: { type: String, required: true },
     options: { type: [String], required: true },
     correctOption: { type: Number, required: true }

@@ -37,3 +37,12 @@ resultsRouter.get(
     res.json({ results });
   })
 );
+
+resultsRouter.delete(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const r = await ResultModel.deleteMany({ userId: req.userId });
+    res.json({ deletedCount: r.deletedCount ?? 0 });
+  })
+);

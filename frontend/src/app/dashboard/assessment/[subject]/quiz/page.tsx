@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/components/Card";
-import { apiFetch, subjectSlugToLabel } from "@/lib/api";
+import { apiFetch, fetchSubjects, subjectSlugToLabel, type Subject } from "@/lib/api";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -16,18 +16,18 @@ type Question = {
   correctOption: number;
 };
 
-function slugToSubject(slug: string): string {
-  if (slug === "python") return "Python";
-  if (slug === "ai") return "Artificial Intelligence";
-  if (slug === "dbms") return "DBMS";
-  return slug;
+function slugToSubjectLabel(slug: string, subjects: Subject[]) {
+  return subjectSlugToLabel(slug, subjects);
 }
 
 export default function QuizPage() {
   const router = useRouter();
   const params = useParams<{ subject: string }>();
   const subjectSlug = params.subject;
-  const subjectLabel = subjectSlugToLabel(subjectSlug);
+
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectsReady, setSubjectsReady] = useState(false);
+  const subjectLabel = useMemo(() => subjectSlugToLabel(subjectSlug, subjects), [subjectSlug, subjects]);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,11 +39,34 @@ export default function QuizPage() {
 
   useEffect(() => {
     let alive = true;
+    fetchSubjects()
+      .then((s) => {
+        if (!alive) return;
+        setSubjects(s);
+        setSubjectsReady(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        // fall back to slug-as-label if subject list can't be fetched
+        setSubjectsReady(true);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!subjectsReady) return;
+
+    let alive = true;
     setLoading(true);
     setError(null);
 
+    const effectiveSubject = slugToSubjectLabel(subjectSlug, subjects);
+
     apiFetch<{ questions: Question[] }>(
-      `/api/questions?subject=${encodeURIComponent(slugToSubject(subjectSlug))}`
+      `/api/questions?subject=${encodeURIComponent(effectiveSubject)}`
     )
       .then((data) => {
         if (!alive) return;
@@ -62,7 +85,7 @@ export default function QuizPage() {
     return () => {
       alive = false;
     };
-  }, [subjectSlug]);
+  }, [subjectSlug, subjects, subjectsReady]);
 
   const current = questions[index];
   const total = questions.length;
@@ -172,10 +195,11 @@ export default function QuizPage() {
             ) : (
               <Button
                 onClick={async () => {
+                  const effectiveSubject = slugToSubjectLabel(subjectSlug, subjects);
                   const result = await apiFetch<{ result: { _id: string } }>("/api/results", {
                     method: "POST",
                     body: JSON.stringify({
-                      subject: slugToSubject(subjectSlug),
+                      subject: effectiveSubject,
                       score,
                       total
                     })
@@ -184,7 +208,7 @@ export default function QuizPage() {
                   sessionStorage.setItem(
                     `attempt:${result.result._id}`,
                     JSON.stringify({
-                      subject: slugToSubject(subjectSlug),
+                      subject: effectiveSubject,
                       questions,
                       answers,
                       score,

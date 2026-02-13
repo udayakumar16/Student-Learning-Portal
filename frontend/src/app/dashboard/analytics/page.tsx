@@ -4,6 +4,7 @@ import { Card } from "@/components/Card";
 import { apiFetch } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import {
   Bar,
   BarChart,
@@ -19,11 +20,18 @@ type Row = { subject: string; score: number; total: number; createdAt: string };
 export default function AnalyticsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  async function reload() {
+    setError(null);
+    const data = await apiFetch<{ subjects: Row[] }>("/api/analytics/me");
+    setRows(data.subjects);
+  }
 
   useEffect(() => {
-    apiFetch<{ subjects: Row[] }>("/api/analytics/me")
-      .then((data) => setRows(data.subjects))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load analytics"));
+    reload().catch((err) => setError(err instanceof Error ? err.message : "Failed to load analytics"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const chartData = useMemo(
@@ -38,10 +46,41 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Analytics" subtitle="Your latest subject-wise performance (from database)." />
+      <PageHeader
+        title="Analytics"
+        subtitle="Your latest subject-wise performance (from database)."
+        right={
+          <Button
+            variant="danger"
+            disabled={resetting}
+            onClick={async () => {
+              const ok = window.confirm(
+                "Reset analytics history?\n\nThis will delete all your saved quiz results. This cannot be undone."
+              );
+              if (!ok) return;
+
+              setResetting(true);
+              setError(null);
+              setMessage(null);
+              try {
+                const r = await apiFetch<{ deletedCount: number }>("/api/results/me", { method: "DELETE" });
+                setMessage(`History cleared (${r.deletedCount} result${r.deletedCount === 1 ? "" : "s"} deleted).`);
+                await reload();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Failed to reset history");
+              } finally {
+                setResetting(false);
+              }
+            }}
+          >
+            {resetting ? "Resetting..." : "Reset history"}
+          </Button>
+        }
+      />
 
       <Card>
         {error ? <div className="text-sm text-red-700">{error}</div> : null}
+        {message ? <div className="mt-2 text-sm text-emerald-700">{message}</div> : null}
 
         <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
           {rows.length ? (

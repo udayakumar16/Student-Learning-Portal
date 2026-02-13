@@ -5,8 +5,9 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAdmin } from "../middleware/auth.js";
-import { QuestionModel, SUBJECTS } from "../models/Question.js";
+import { QuestionModel } from "../models/Question.js";
 import { ResultModel } from "../models/Result.js";
+import { SubjectModel } from "../models/Subject.js";
 import { UserModel } from "../models/User.js";
 import { asyncHandler, HttpError } from "../utils/http.js";
 
@@ -102,11 +103,36 @@ adminRouter.post(
 );
 
 const questionCreateSchema = z.object({
-  subject: z.enum(SUBJECTS),
+  subject: z.string().min(1),
   question: z.string().min(5),
   options: z.array(z.string().min(1)).length(4),
   correctOption: z.number().int().min(0).max(3)
 });
+
+const bulkQuestionCreateSchema = z.object({
+  subject: z.string().min(1),
+  questions: z
+    .array(
+      z.object({
+        question: z.string().min(5),
+        options: z.array(z.string().min(1)).length(4),
+        correctOption: z.number().int().min(0).max(3)
+      })
+    )
+    .min(1)
+});
+
+const subjectCreateSchema = z.object({
+  label: z.string().min(2).max(80)
+});
+
+function slugify(label: string) {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
 
 adminRouter.get(
   "/questions",
@@ -131,8 +157,81 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     const input = questionCreateSchema.parse(req.body);
 
+    const subjectExists = await SubjectModel.exists({ label: input.subject, active: true });
+    if (!subjectExists) throw new HttpError(400, `Unknown subject: ${input.subject}`);
+
     const created = await QuestionModel.create(input);
     res.status(201).json({ question: created });
+  })
+);
+
+adminRouter.post(
+  "/questions/bulk",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const input = bulkQuestionCreateSchema.parse(req.body);
+
+    const subjectExists = await SubjectModel.exists({ label: input.subject, active: true });
+    if (!subjectExists) throw new HttpError(400, `Unknown subject: ${input.subject}`);
+
+    const docs = input.questions.map((q) => ({
+      subject: input.subject,
+      question: q.question,
+      options: q.options,
+      correctOption: q.correctOption
+    }));
+
+    const created = await QuestionModel.insertMany(docs, { ordered: true });
+    res.status(201).json({ count: created.length });
+  })
+);
+
+adminRouter.get(
+  "/subjects",
+  requireAdmin,
+  asyncHandler(async (_req, res) => {
+    const subjects = await SubjectModel.find({}).select("slug label active createdAt").sort({ label: 1 });
+    res.json({ subjects });
+  })
+);
+
+adminRouter.post(
+  "/subjects",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const input = subjectCreateSchema.parse(req.body);
+    const label = input.label.trim();
+    const slug = slugify(label);
+    if (!slug) throw new HttpError(400, "Invalid subject name");
+
+    const existing = await SubjectModel.findOne({ $or: [{ slug }, { label }] });
+    if (existing) {
+      if (existing.active) throw new HttpError(409, "Subject already exists");
+      existing.active = true;
+      existing.label = label;
+      existing.slug = slug;
+      await existing.save();
+      res.status(200).json({ subject: existing });
+      return;
+    }
+
+    const created = await SubjectModel.create({ slug, label, active: true });
+    res.status(201).json({ subject: created });
+  })
+);
+
+adminRouter.delete(
+  "/subjects/:id",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = req.params.id;
+    const subject = await SubjectModel.findById(id);
+    if (!subject) throw new HttpError(404, "Subject not found");
+
+    // Soft-delete by default so existing results remain readable.
+    subject.active = false;
+    await subject.save();
+    res.json({ ok: true });
   })
 );
 
